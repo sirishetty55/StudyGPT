@@ -1,9 +1,28 @@
 services:
+
   backend:
     build: ./backend
-
     ports:
       - "8000:8000"
-
     volumes:
       - ./backend:/app
+
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:17
+
+    environment:
+      POSTGRES_USER: studygpt
+      POSTGRES_PASSWORD: studygpt123
+      POSTGRES_DB: studygpt
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
