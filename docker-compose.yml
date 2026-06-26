@@ -2,10 +2,15 @@ services:
 
   backend:
     build: ./backend
+
     ports:
       - "8000:8000"
+
     volumes:
       - ./backend:/app
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
     depends_on:
       - postgres
