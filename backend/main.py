@@ -4,11 +4,15 @@ from models import Base, User
 from schemas import UserCreate
 from pdf_utils import extract_text
 from chunking import create_chunks
+from embedding import generate_embeddings
+from qdrant_store import store_embeddings
+from rag import ask_rag
 import shutil
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def home():
@@ -58,9 +62,25 @@ def upload_pdf(file: UploadFile = File(...)):
 
     chunks = create_chunks(text)
 
+    embeddings = generate_embeddings(chunks)
+
+    store_embeddings(chunks, embeddings)
+
     return {
         "filename": file.filename,
         "text_length": len(text),
         "number_of_chunks": len(chunks),
-        "first_chunk": chunks[0] if chunks else ""
+        "embedding_dimension": len(embeddings[0]),
+        "stored_in_qdrant": True
+    }
+
+
+@app.get("/ask")
+def ask(question: str):
+
+    answer = ask_rag(question)
+
+    return {
+        "question": question,
+        "answer": answer
     }
