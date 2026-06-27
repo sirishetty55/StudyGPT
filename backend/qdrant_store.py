@@ -1,5 +1,6 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
+import uuid
 
 client = QdrantClient(
     host="qdrant",
@@ -7,20 +8,25 @@ client = QdrantClient(
 )
 
 
-def store_embeddings(chunks, embeddings):
+def store_embeddings(chunks, embeddings, filename):
 
     points = []
 
-    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+    for chunk, embedding in zip(chunks, embeddings):
+
         points.append(
             PointStruct(
-                id=i,
+                id=str(uuid.uuid4()),
                 vector=embedding,
-                payload={"text": chunk}
+                payload={
+                    "text": chunk,
+                    "filename": filename
+                }
             )
         )
 
     client.upsert(
         collection_name="study_notes",
-        points=points
+        points=points,
+        wait=True
     )

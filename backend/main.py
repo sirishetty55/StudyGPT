@@ -7,11 +7,18 @@ from chunking import create_chunks
 from embedding import generate_embeddings
 from qdrant_store import store_embeddings
 from rag import ask_rag
+from qdrant_client import QdrantClient
+import qdrant_db
 import shutil
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
+client = QdrantClient(
+    host="qdrant",
+    port=6333
+)
 
 
 @app.get("/")
@@ -53,6 +60,23 @@ def get_users():
 @app.post("/upload-pdf")
 def upload_pdf(file: UploadFile = File(...)):
 
+    points = client.scroll(
+        collection_name="study_notes",
+        limit=10000,
+        with_payload=True
+    )[0]
+
+    uploaded_files = {
+        point.payload["filename"]
+        for point in points
+    }
+
+    if file.filename in uploaded_files:
+        return {
+            "success": False,
+            "message": f"{file.filename} already exists."
+        }
+
     file_path = f"uploads/{file.filename}"
 
     with open(file_path, "wb") as buffer:
@@ -60,27 +84,88 @@ def upload_pdf(file: UploadFile = File(...)):
 
     text = extract_text(file_path)
 
+    if len(text.strip()) == 0:
+        return {
+            "success": False,
+            "message": "No readable text found in the PDF."
+        }
+
     chunks = create_chunks(text)
 
     embeddings = generate_embeddings(chunks)
 
-    store_embeddings(chunks, embeddings)
+    store_embeddings(
+        chunks,
+        embeddings,
+        file.filename
+    )
 
     return {
+        "success": True,
         "filename": file.filename,
-        "text_length": len(text),
-        "number_of_chunks": len(chunks),
-        "embedding_dimension": len(embeddings[0]),
         "stored_in_qdrant": True
     }
 
 
-@app.get("/ask")
-def ask(question: str):
+@app.get("/files")
+def list_files():
 
-    answer = ask_rag(question)
+    points = client.scroll(
+        collection_name="study_notes",
+        limit=10000,
+        with_payload=True
+    )[0]
+
+    files = sorted({
+        point.payload["filename"]
+        for point in points
+    })
+
+    return {
+        "total_files": len(files),
+        "files": files
+    }
+
+
+@app.delete("/files/{filename}")
+def delete_file(filename: str):
+
+    points = client.scroll(
+        collection_name="study_notes",
+        limit=10000,
+        with_payload=True
+    )[0]
+
+    ids = []
+
+    for point in points:
+        if point.payload["filename"] == filename:
+            ids.append(point.id)
+
+    if len(ids) == 0:
+        return {
+            "success": False,
+            "message": "File not found."
+        }
+
+    client.delete(
+        collection_name="study_notes",
+        points_selector=ids
+    )
+
+    return {
+        "success": True,
+        "message": f"{filename} deleted successfully."
+    }
+
+
+@app.get("/ask")
+def ask(question: str, filename: str | None = None):
+
+    result = ask_rag(question, filename)
 
     return {
         "question": question,
-        "answer": answer
+        "answer": result["answer"],
+        "sources": result["sources"]
     }
