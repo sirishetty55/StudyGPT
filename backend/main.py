@@ -1,17 +1,31 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+
 from database import engine, SessionLocal
 from models import Base, User
 from schemas import UserCreate
+from schemas_chat import ChatRequest
+
 from pdf_utils import extract_text
 from chunking import create_chunks
 from embedding import generate_embeddings
 from qdrant_store import store_embeddings
 from rag import ask_rag
+
 from qdrant_client import QdrantClient
-import qdrant_db
+
 import shutil
+import qdrant_db
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,7 +37,10 @@ client = QdrantClient(
 
 @app.get("/")
 def home():
-    return {"message": "StudyGPT Backend Running"}
+
+    return {
+        "message": "StudyGPT Backend Running"
+    }
 
 
 @app.post("/users")
@@ -52,9 +69,7 @@ def get_users():
 
     db = SessionLocal()
 
-    users = db.query(User).all()
-
-    return users
+    return db.query(User).all()
 
 
 @app.post("/upload-pdf")
@@ -72,6 +87,7 @@ def upload_pdf(file: UploadFile = File(...)):
     }
 
     if file.filename in uploaded_files:
+
         return {
             "success": False,
             "message": f"{file.filename} already exists."
@@ -85,6 +101,7 @@ def upload_pdf(file: UploadFile = File(...)):
     text = extract_text(file_path)
 
     if len(text.strip()) == 0:
+
         return {
             "success": False,
             "message": "No readable text found in the PDF."
@@ -101,9 +118,13 @@ def upload_pdf(file: UploadFile = File(...)):
     )
 
     return {
+
         "success": True,
+
         "filename": file.filename,
+
         "stored_in_qdrant": True
+
     }
 
 
@@ -117,13 +138,19 @@ def list_files():
     )[0]
 
     files = sorted({
+
         point.payload["filename"]
+
         for point in points
+
     })
 
     return {
+
         "total_files": len(files),
+
         "files": files
+
     }
 
 
@@ -139,33 +166,53 @@ def delete_file(filename: str):
     ids = []
 
     for point in points:
+
         if point.payload["filename"] == filename:
+
             ids.append(point.id)
 
     if len(ids) == 0:
+
         return {
+
             "success": False,
+
             "message": "File not found."
+
         }
 
     client.delete(
+
         collection_name="study_notes",
+
         points_selector=ids
+
     )
 
     return {
+
         "success": True,
+
         "message": f"{filename} deleted successfully."
+
     }
+@app.post("/ask")
+def ask(chat: ChatRequest):
 
+    result = ask_rag(
 
-@app.get("/ask")
-def ask(question: str, filename: str | None = None):
+        question=chat.question,
 
-    result = ask_rag(question, filename)
+        filenames=chat.filenames
+
+    )
 
     return {
-        "question": question,
+
+        "question": chat.question,
+
         "answer": result["answer"],
+
         "sources": result["sources"]
+
     }
