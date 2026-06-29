@@ -528,3 +528,54 @@ font-weight:600;
     font-size:15px;
 
 }
+/* ---------- Markdown ---------- */
+
+.ai-message h1{
+    font-size:32px;
+    margin-bottom:18px;
+    line-height:1.2;
+}
+
+.ai-message h2{
+    font-size:26px;
+    margin:18px 0 12px;
+}
+
+.ai-message h3{
+    font-size:22px;
+    margin:16px 0 10px;
+}
+
+.ai-message p{
+    line-height:1.7;
+    margin-bottom:12px;
+}
+
+.ai-message ul,
+.ai-message ol{
+    margin-left:22px;
+    margin-bottom:15px;
+    line-height:1.8;
+}
+
+.ai-message li{
+    margin-bottom:6px;
+}
+
+.ai-message strong{
+    color:#1f2937;
+}
+
+.ai-message code{
+    background:#eef2ff;
+    padding:2px 6px;
+    border-radius:5px;
+}
+
+.ai-message pre{
+    background:#1f2937;
+    color:white;
+    padding:15px;
+    border-radius:10px;
+    overflow-x:auto;
+}
